@@ -301,7 +301,7 @@ ssize_t fdp_nvme_write(fdp_dev_t *dev, void *buf, size_t count, off_t offset, ui
   assert(rc == 0);
 
   // check the cqe returned
-
+  io_uring_cqe_seen(&dev->ring, cqe);
   return rc;
 }
 
