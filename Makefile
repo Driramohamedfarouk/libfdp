@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -fPIC -luring # -O0 -g
+CFLAGS = -std=c++11 -Wall -Wextra -fPIC -luring -lpthread -g # -O0
 # TARGET = nvme_check
 LDFLAGS = 
 
