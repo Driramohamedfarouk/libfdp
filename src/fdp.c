@@ -14,8 +14,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "util.h"
 #include "nvme_util.h"
+#include "util.h"
 
 // thread_local struct io_uring tls_ring;
 
@@ -82,7 +82,7 @@ int fdp_get_events(fdp_dev_t *dev, __u8 *log, __u32 log_size) {
 	struct nvme_get_log_args args = {
 		// .lpo = offset,
 		.lpo = 0, // use 0 as offset for the moment I don't get much the use of
-				  // nonzero offset
+		// nonzero offset
 		.result = NULL,
 		.log = log,
 		.args_size = sizeof(args),
@@ -113,7 +113,7 @@ int open_ru_timer(void *arg) {
 			break;
 		}
 		// XXX(mfd) : This is buggy because the results of remaining media
-	    // writes returned by the device fluctuate
+		// writes returned by the device fluctuate
 		if (ruamw > last_seen_ruamw) {
 			open_ru++;
 			XLOGF("INFO", "RUAMW = %ld", ruamw);
@@ -272,6 +272,9 @@ int fdp_open(const char *bdev_name, fdp_dev_t *dev) {
 		return -1;
 	}
 
+	/** Check that the given bdev is open in the calling application.
+	The information is in /proc/ME/fd I think. */
+
 	int fd = open(dev->g_name, O_RDONLY);
 	if (fd < 0) {
 		XLOGF("ERR", "open() failed for %s: %s", dev->g_name, strerror(errno));
@@ -326,9 +329,10 @@ void fdp_close(struct fdp_dev *dev) {
 }
 
 // first argument is the file descriptor of the generic nvme device
-static struct io_uring_sqe *prep_passthrough_cmd(fdp_dev_t *dev, void *buf,
-												 size_t buf_size, size_t offset,
-												 int is_write, uint16_t dspec) {
+static struct io_uring_sqe *
+prep_passthrough_cmd(fdp_dev_t *dev, const void *buf, size_t buf_size,
+					 size_t offset, int is_write, uint16_t dspec,
+					 struct io_uring_sqe *isqe = NULL) {
 	struct io_uring_sqe *sqe;
 	struct nvme_uring_cmd *cmd;
 	lba_t slba;
@@ -336,9 +340,15 @@ static struct io_uring_sqe *prep_passthrough_cmd(fdp_dev_t *dev, void *buf,
 
 	const uint8_t dtype = 0x02; // 2 specifies FDP directive
 
-	sqe = io_uring_get_sqe(&dev->ring);
-	if (!sqe)
-		return sqe;
+	if (isqe == NULL) {
+		sqe = io_uring_get_sqe(&dev->ring);
+		if (!sqe)
+			return sqe;
+	} else {
+		// TODO(mfd) : Is there a way to do a sanity check that isqe is from
+		// a ring with BIG_SQE ?
+		sqe = isqe;
+	}
 
 	sqe->fd = dev->g_fd;
 	sqe->opcode = IORING_OP_URING_CMD;
@@ -433,28 +443,13 @@ ssize_t fdp_get_remaining_bytes_in_ru(fdp_dev_t *dev, plid_t plid) {
 	return desc->ruamw;
 }
 
-/** TODO(mfd) : Finish later the asyncrounous variants by implementing an
-analog to io_uring_prep_write() that takes plid */
+void fdp_io_uring_prep_write(struct io_uring_sqe *sqe, fdp_dev_t *dev,
+							 const void *buf, unsigned count, __u64 offset,
+							 uint16_t plid) {
 
-/*
-ssize_t fdp_submit_pwrite(fdp_dev_t *dev, void *buf, size_t count, off_t offset,
-uint16_t plid) { int rc; struct io_uring_sqe *sqe; struct io_uring_cqe cqe;
-  struct io_uring_cqe *cqes = &cqe;
-  // transoform the posix like arhument into correponding
-  // argument to the device and perform some sanity checks
+	assert(plid < dev->nruh);
+	sqe = prep_passthrough_cmd(dev, buf, count, offset, 1, plid, sqe);
+	assert(sqe != NULL);
 
-  sqe = prep_passthrough_cmd(dev, buf, count, offset, 1, plid);
-
-  assert(sqe != NULL);
-  rc = io_uring_submit(&dev->ring);
-  assert(rc == 1);
-
-  return rc;
+	return;
 }
-
-int fdp_get_completions(fdp_dev_t *dev, uint32_t nr_events) {
-	struct io_uring_cqe *cqes;
-	// size of BIG CQE is 32
-	cqes = (struct io_uring_cqe*) malloc(nr_events * 32U);
-}
-*/

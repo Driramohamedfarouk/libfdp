@@ -52,8 +52,6 @@ int get_nvme_char_device(const char *bdev_name, char *out_buf,
 	return 0;
 }
 
-
-
 // responsability of caller to provide big enough buffer
 static uint64_t read_numeric_from_file(const char *filename) {
 	FILE *fp;

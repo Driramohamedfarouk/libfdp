@@ -259,3 +259,7 @@ int fdp_get_events(fdp_dev_t *dev, __u8 *log, __u32 log_size);
 void fdp_register_gc_callback(fdp_dev_t *dev, void (*gc_callback)(void));
 
 int open_ru_timer(void *arg);
+
+void fdp_io_uring_prep_write(struct io_uring_sqe *sqe, fdp_dev_t *dev,
+							 const void *buf, unsigned count, __u64 offset,
+							 uint16_t plid);
