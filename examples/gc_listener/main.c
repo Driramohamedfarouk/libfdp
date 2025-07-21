@@ -7,19 +7,21 @@
 void callback(void) { printf("Hello\n"); }
 
 int main(int argc, char *argv[]) {
-	fdp_dev_t dev;
-	int err;
+	int err, fd;
 	uint32_t nb_pages = 0;
 	uint8_t *buffer;
+	void *bp;
 	uint32_t nb_gc_events = 0;
 
-	err = fdp_open("/dev/nvme0n1", &dev);
-	int rc = posix_memalign(&buffer, 16384, 4096);
+	fd = fdp_open("/dev/nvme1n1", O_RDWR);
+	assert(fd > 0);
+	int rc = posix_memalign(&bp, 16384, 4096);
 	if (rc) {
 		return -1;
 	}
+	buffer = (uint8_t *)bp;
 	ssize_t ret;
-	err = fdp_get_events(&dev, buffer, 4096);
+	err = fdp_get_events(fd, buffer, 4096);
 	if (err != 0) {
 		printf("Failed to get fdp events\n");
 	}
@@ -43,6 +45,7 @@ int main(int argc, char *argv[]) {
 	free(buffer);
 	// fdp_register_gc_callback(&dev, callback);
 	// while(1);
-	open_ru_timer((void *)&dev);
+	// open_ru_timer((void *)&dev);
+	fdp_close(fd);
 	return 0;
 }

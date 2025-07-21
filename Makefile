@@ -1,4 +1,4 @@
-CC = gcc
+CC = g++
 CFLAGS = -std=c++11 -Wall -Wextra -fPIC -luring -lpthread -g # -O0
 # TARGET = nvme_check
 LDFLAGS = 

@@ -13,11 +13,21 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <unordered_map>
 
 #include "nvme_util.h"
 #include "util.h"
 
-// thread_local struct io_uring tls_ring;
+/** map from the file descriptor of the block device to the struct
+struct fdp_dev, this is analog to struct file[] inside struct task_struct in
+linux.*/
+// std::mutex m; put it here to remember to make the library MT-safe.
+std::unordered_map<int, fdp_dev_t *> open_fdp_devices;
+
+static fdp_dev_t *get_fdp_dev(int fd) {
+	assert(open_fdp_devices.count(fd) == 1);
+	return open_fdp_devices[fd];
+}
 
 /** TODO(mfd) : change this to issue raw command asyncronously
 using the passthrough interface instead of the synchronous ioctl sytem call. */
@@ -77,7 +87,8 @@ int nvme_get_log(struct nvme_get_log_args *args) {
 	return ioctl(args->fd, NVME_IOCTL_ADMIN_CMD, &cmd);
 }
 
-int fdp_get_events(fdp_dev_t *dev, __u8 *log, __u32 log_size) {
+int fdp_get_events(int fd, __u8 *log, __u32 log_size) {
+	fdp_dev_t *dev = get_fdp_dev(fd);
 	// construct the corresponding arg type
 	struct nvme_get_log_args args = {
 		// .lpo = offset,
@@ -107,7 +118,8 @@ int open_ru_timer(void *arg) {
 	__u32 open_ru = -1; // move this to be inside the dev struct
 	while (1) {
 		// nanosleep(); // 1 ms
-		ssize_t ruamw = fdp_get_remaining_bytes_in_ru(dev, 0);
+		// Temporary use of api here
+		ssize_t ruamw = fdp_get_remaining_bytes_in_ru(dev->bdev_fd, 0);
 		if (ruamw < 0) {
 			XLOGF("ERR", "fdp_get_remaining_bytes returned error");
 			break;
@@ -143,7 +155,8 @@ static int gc_event_listener(void *arg) {
 	// last seen GC timestamp
 	__u64 last_seen_timestamp = 0;
 	while (true) {
-		err = fdp_get_events(dev, (__u8 *)log, 4096);
+		// temporary use of external interface.
+		err = fdp_get_events(dev->bdev_fd, (__u8 *)log, 4096);
 		// Check for new event
 		// parse the log and start from the end looking whether there is a new
 		// event
@@ -168,10 +181,12 @@ static int gc_event_listener(void *arg) {
 	return 0;
 }
 
-void fdp_register_gc_callback(fdp_dev_t *dev, void (*gc_callback)(void)) {
+/*
+void fdp_register_gc_callback(int fd, void (*gc_callback)(void)) {
 	// if this is the first registered callback fire up the deamon thread
 	// use a mutex here when making the library MT-Safe.
 	int err;
+	fdp_dev_t *dev = get_fdp_dev(fd);
 	if (dev->gc_callback == NULL) {
 		dev->gc_callback = gc_callback;
 		// create the event listener thread.
@@ -185,6 +200,7 @@ void fdp_register_gc_callback(fdp_dev_t *dev, void (*gc_callback)(void)) {
 	XLOGF("WARNING", "There is already a registered callback, for now we "
 					 "support only one callback");
 }
+*/
 
 struct nvme_fdp_ruh_status *nvme_fdp_status(fdp_dev_t *dev) {
 	struct nvme_fdp_ruh_status hdr;
@@ -254,17 +270,33 @@ int read_nvme_info(fdp_dev_t *dev) {
 }
 
 // This is part of the library interface
-int fdp_open(const char *bdev_name, fdp_dev_t *dev) {
+int fdp_open(const char *bdev_name, int flags, ... /* mode_t mode */) {
+	int bdev_fd, g_fd;
+	fdp_dev_t *dev;
+
 	if (!is_valid_nvme_device(bdev_name)) {
 		fprintf(stderr, "Invalid NVMe device name: %s\n", bdev_name);
 		return -1;
 	}
 
 	fprintf(stderr, "%s\n", bdev_name);
+
+	// open the block device, discard mode it is irrelevant here.
+	bdev_fd = open(bdev_name, flags);
+	if (bdev_fd < 0) {
+		XLOGF("ERR", "Cannot open block device");
+		return -1;
+	}
+
+	dev = (fdp_dev_t *)malloc(sizeof(fdp_dev_t));
+	if (dev == NULL) {
+		XLOGF("ERR", "malloc failed");
+		return -1;
+	}
+
 	strcpy(dev->name, bdev_name);
 
 	// get the char dev name
-
 	if (get_nvme_char_device(bdev_name, dev->g_name, sizeof(dev->g_name)) !=
 		0) {
 		fprintf(stderr, "Failed to get NVMe char device name for %s\n",
@@ -275,13 +307,14 @@ int fdp_open(const char *bdev_name, fdp_dev_t *dev) {
 	/** Check that the given bdev is open in the calling application.
 	The information is in /proc/ME/fd I think. */
 
-	int fd = open(dev->g_name, O_RDONLY);
-	if (fd < 0) {
+	g_fd = open(dev->g_name, O_RDONLY);
+	if (g_fd < 0) {
 		XLOGF("ERR", "open() failed for %s: %s", dev->g_name, strerror(errno));
 		return -1;
 	}
 
-	dev->g_fd = fd;
+	dev->bdev_fd = bdev_fd;
+	dev->g_fd = g_fd;
 	assert(isdigit(dev->g_name[9]));
 	dev->nsid = (uint16_t)(dev->g_name[9] - '0');
 	XLOGF("INFO", "Opening NVMe Char Dev file: %s on fd %d with nsid %d",
@@ -319,20 +352,31 @@ int fdp_open(const char *bdev_name, fdp_dev_t *dev) {
 
 	dev->gc_callback = NULL;
 
-	return 0;
+	assert(open_fdp_devices.count(bdev_fd) == 0);
+	open_fdp_devices[bdev_fd] = dev;
+
+	return bdev_fd;
 }
 
-void fdp_close(struct fdp_dev *dev) {
+void fdp_close(int fd) {
+	fdp_dev_t *dev;
+	dev = get_fdp_dev(fd);
 	// if the device has any registered device callbacks
 	// remove them.
+	close(dev->bdev_fd);
 	close(dev->g_fd);
+	io_uring_queue_exit(&dev->ring);
+	// TODO(mfd) : use atomic flags to signal termination of detached thread
+	free(dev);
+	return;
 }
 
 // first argument is the file descriptor of the generic nvme device
-static struct io_uring_sqe *
-prep_passthrough_cmd(fdp_dev_t *dev, const void *buf, size_t buf_size,
-					 size_t offset, int is_write, uint16_t dspec,
-					 struct io_uring_sqe *isqe = NULL) {
+static struct io_uring_sqe *prep_passthrough_cmd(fdp_dev_t *dev,
+												 const void *buf,
+												 size_t buf_size, size_t offset,
+												 int is_write, uint16_t dspec,
+												 struct io_uring_sqe *isqe) {
 	struct io_uring_sqe *sqe;
 	struct nvme_uring_cmd *cmd;
 	lba_t slba;
@@ -379,10 +423,16 @@ prep_passthrough_cmd(fdp_dev_t *dev, const void *buf, size_t buf_size,
 	return sqe;
 }
 
-// For now the first argument will be a pointer to the fdp_dev_t but since I
-// want POSIX-like api it would rather be a file descriptor and I take care of
-// looking up the corresponding fdp_dev_t struct.
-ssize_t fdp_pwrite(fdp_dev_t *dev, void *buf, size_t count, off_t offset,
+/** FIXME(mfd) Currently this is does not offer the exact pwrite
+sematics interface. Since this will issue a single command
+the number of bytes to write is bounded by how big the
+the nvme device can support writes in a single NVMe command.
+What we should do here is decompose the write into multiple commands
+each of write size does not exceed max_transfer_size. Another
+thing is unaligned writes. I guess this is fixed by performing
+a read followed by write (Steal code from the kernel to handle this).
+I don't need any of this for the moment so I'll just assert. */
+ssize_t fdp_pwrite(int fd, void *buf, size_t count, off_t offset,
 				   uint16_t plid) {
 	int rc;
 	struct io_uring_sqe *sqe;
@@ -390,9 +440,14 @@ ssize_t fdp_pwrite(fdp_dev_t *dev, void *buf, size_t count, off_t offset,
 	struct io_uring_cqe *cqe_ptr = &cqe;
 	// transoform the posix like arhument into correponding
 	// argument to the device and perform some sanity checks
+	fdp_dev_t *dev = get_fdp_dev(fd);
+
+	assert(count <= dev->max_transfer_size);
+	assert((__u64)buf % dev->lba_size == 0);
+	assert((__u64)offset % dev->lba_size == 0);
 
 	assert(plid < dev->nruh);
-	sqe = prep_passthrough_cmd(dev, buf, count, offset, 1, plid);
+	sqe = prep_passthrough_cmd(dev, buf, count, offset, 1, plid, NULL);
 
 	assert(sqe != NULL);
 	rc = io_uring_submit(&dev->ring);
@@ -401,12 +456,12 @@ ssize_t fdp_pwrite(fdp_dev_t *dev, void *buf, size_t count, off_t offset,
 	rc = io_uring_wait_cqe(&dev->ring, &cqe_ptr);
 	assert(rc == 0);
 
-	// check the cqe returned
 	io_uring_cqe_seen(&dev->ring, cqe_ptr);
-	return rc;
+
+	return cqe.res == 0 ? count : cqe.res;
 }
 
-ssize_t fdp_get_remaining_bytes_in_ru(fdp_dev_t *dev, plid_t plid) {
+ssize_t fdp_get_remaining_bytes_in_ru(int fd, plid_t plid) {
 	/** XXX(mfd4) : For now we assume plid is the same as ruhid.
 	that is the user configured the device to have plid 0,1,...,nruh-1.
 	Later we need to maintain a mapping. Also for now we assume there is
@@ -415,6 +470,8 @@ ssize_t fdp_get_remaining_bytes_in_ru(fdp_dev_t *dev, plid_t plid) {
 	int err;
 	struct nvme_fdp_ruh_status *status;
 	struct nvme_fdp_ruh_status_desc *desc;
+
+	fdp_dev_t *dev = get_fdp_dev(fd);
 
 	// assert the fdp_device is initialized
 	assert(dev->nruh != 0);
@@ -443,10 +500,9 @@ ssize_t fdp_get_remaining_bytes_in_ru(fdp_dev_t *dev, plid_t plid) {
 	return desc->ruamw;
 }
 
-void fdp_io_uring_prep_write(struct io_uring_sqe *sqe, fdp_dev_t *dev,
-							 const void *buf, unsigned count, __u64 offset,
-							 uint16_t plid) {
-
+void fdp_io_uring_prep_write(struct io_uring_sqe *sqe, int fd, const void *buf,
+							 unsigned count, __u64 offset, uint16_t plid) {
+	fdp_dev_t *dev = get_fdp_dev(fd);
 	assert(plid < dev->nruh);
 	sqe = prep_passthrough_cmd(dev, buf, count, offset, 1, plid, sqe);
 	assert(sqe != NULL);
