@@ -436,8 +436,7 @@ ssize_t fdp_pwrite(int fd, void *buf, size_t count, off_t offset,
 				   uint16_t plid) {
 	int rc;
 	struct io_uring_sqe *sqe;
-	struct io_uring_cqe cqe;
-	struct io_uring_cqe *cqe_ptr = &cqe;
+	struct io_uring_cqe *cqe_ptr = nullptr;
 	// transoform the posix like arhument into correponding
 	// argument to the device and perform some sanity checks
 	fdp_dev_t *dev = get_fdp_dev(fd);
@@ -458,7 +457,7 @@ ssize_t fdp_pwrite(int fd, void *buf, size_t count, off_t offset,
 
 	io_uring_cqe_seen(&dev->ring, cqe_ptr);
 
-	return cqe.res == 0 ? count : cqe.res;
+	return cqe_ptr->res == 0 ? count : cqe_ptr->res;
 }
 
 ssize_t fdp_get_remaining_bytes_in_ru(int fd, plid_t plid) {
