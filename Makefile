@@ -7,7 +7,6 @@ LDFLAGS =
 LIBNAME = fdp
 
 # SRC = libfdp.c
-#TODO(mfd) : Add a rule to execute clang-format on all source and header files
 
 SRCDIR = src
 INCDIR = include
@@ -28,7 +27,7 @@ STATIC_LIB = $(LIBDIR)/lib$(LIBNAME).a
 SHARED_LIB = $(LIBDIR)/lib$(LIBNAME).so
 
 
-.PHONY: all clean install uninstall
+.PHONY: all clean install uninstall format
 
 
 # all: $(TARGET)
@@ -65,3 +64,12 @@ uninstall:
 	rm -f $(INSTALL_INC_DIR)/$(notdir $(HEADER))
 	rm -f $(INSTALL_LIB_DIR)/lib$(LIBNAME).*
 	ldconfig
+
+FORMAT_EXTENSIONS := c h
+FORMAT_FILES := $(shell find . -type f \( $(foreach ext,$(FORMAT_EXTENSIONS),-name '*.$(ext)' -o ) -false \))
+
+format:
+	@echo "Formatting source files with clang-format..."
+	@clang-format -i $(FORMAT_FILES)
+	@echo "Done."
+
