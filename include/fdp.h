@@ -263,3 +263,7 @@ int open_ru_timer(void *arg);
 
 void fdp_io_uring_prep_write(struct io_uring_sqe *sqe, int fd, const void *buf,
 							 unsigned count, __u64 offset, uint16_t plid);
+
+/** Given an placement id, will reset the write pointer of the corresponding RUH
+on a new free Reclaim Unit */
+void fdp_reset_free_ru(int fd, plid_t plid);

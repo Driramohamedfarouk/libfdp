@@ -202,6 +202,28 @@ void fdp_register_gc_callback(int fd, void (*gc_callback)(void)) {
 }
 */
 
+/**
+Reset a number of plids given by the array pids to write on a free RU.
+*/
+static int nvme_fdp_reclaim_unit_handle_update(int fd, __u32 nsid,
+											   unsigned int npids,
+											   __u16 *pids) {
+	__u32 cdw10 = 0x01 | ((npids - 1) << 16);
+
+	struct nvme_passthru_cmd cmd = {
+		.opcode = nvme_cmd_io_mgmt_send,
+		.nsid = nsid,
+		.addr = (__u64)(uintptr_t)pids,
+		.data_len = (__u32)(npids * sizeof(__u16)),
+		.cdw10 = cdw10,
+	};
+
+	int err = ioctl(fd, NVME_IOCTL_IO_CMD, &cmd);
+	if (err >= 0)
+		return cmd.result;
+	return err;
+}
+
 struct nvme_fdp_ruh_status *nvme_fdp_status(fdp_dev_t *dev) {
 	struct nvme_fdp_ruh_status hdr;
 	struct nvme_fdp_ruh_status *status;
@@ -507,4 +529,21 @@ void fdp_io_uring_prep_write(struct io_uring_sqe *sqe, int fd, const void *buf,
 	assert(sqe != NULL);
 
 	return;
+}
+
+void fdp_reset_free_ru(int fd, plid_t plid) {
+
+	fdp_dev_t *dev = get_fdp_dev(fd);
+	assert(plid < dev->nruh);
+
+	__u16 *plidp = &plid;
+	int rc =
+		nvme_fdp_reclaim_unit_handle_update(dev->g_fd, dev->nsid, 1, plidp);
+
+	assert(rc == 0);
+
+	// TODO(mfd) : Refactor change this to use internal API
+	while (fdp_get_remaining_bytes_in_ru(fd, plid) != 3193344) {
+		usleep(1000); // 1ms
+	}
 }
