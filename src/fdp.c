@@ -380,6 +380,12 @@ int fdp_open(const char *bdev_name, int flags, ... /* mode_t mode */) {
 	return bdev_fd;
 }
 
+void fdp_sqe_set_plid(struct io_uring_sqe *sqe, uint16_t plid) {
+	struct nvme_uring_cmd *cmd = (struct nvme_uring_cmd *)&sqe->cmd;
+	assert(sqe->opcode == IORING_OP_URING_CMD);
+	cmd->cdw13 = (cmd->cdw13 & 0xFFFF) | ((uint32_t)plid << 16);
+}
+
 void fdp_close(int fd) {
 	fdp_dev_t *dev;
 	dev = get_fdp_dev(fd);

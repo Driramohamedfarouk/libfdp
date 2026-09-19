@@ -243,6 +243,9 @@ int fdp_open(const char *bdev_name, int flags, ... /* mode_t mode */);
 ssize_t fdp_pwrite(int fd, void *buf, size_t count, off_t offset,
 				   uint16_t plid);
 
+// Sets the placement id of an already filled sqe
+void fdp_sqe_set_plid(struct io_uring_sqe *sqe, uint16_t plid);
+
 void fdp_close(int fd);
 
 /** On success it return the number of remaining media writes in the open
