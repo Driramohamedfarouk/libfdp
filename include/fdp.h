@@ -1,4 +1,4 @@
-
+#pragma once
 // Almost alli nvme structs and constants and enum defitions are taken from
 // libnvme. later just copy the src/nvme/types.h under include as is, with its
 // copyright and remove redundant definitions here.
