@@ -10,8 +10,12 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(uring REQUIRED IMPORTED_TARGET liburing)
 find_package(Threads REQUIRED)
 
-add_library(fdp src/fdp.c)          # rename to .cpp and drop the line below
-set_source_files_properties(src/fdp.c PROPERTIES LANGUAGE CXX)
+add_library(fdp
+    src/fdp_device.cpp
+    src/nvme_ioctl.cpp
+    src/fdp_ruh.cpp
+    src/fdp_io.cpp
+    src/fdp_events.cpp)
 add_library(fdp::fdp ALIAS fdp)
 
 target_compile_features(fdp PUBLIC cxx_std_11)

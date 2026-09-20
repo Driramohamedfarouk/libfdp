@@ -13,8 +13,8 @@ INCDIR = include
 OBJDIR = obj
 LIBDIR = lib
 
-SRCS = $(wildcard $(SRCDIR)/*.c)
-OBJS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRCS))
+SRCS = $(wildcard $(SRCDIR)/*.cpp)
+OBJS = $(patsubst $(SRCDIR)/%.cpp,$(OBJDIR)/%.o,$(SRCS))
 HEADER = $(INCDIR)/$(LIBNAME).h  # Main public header
 
 
@@ -34,7 +34,7 @@ SHARED_LIB = $(LIBDIR)/lib$(LIBNAME).so
 all: $(STATIC_LIB) $(SHARED_LIB)
 
 # -c option to tell gcc to stop before linking
-$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
+$(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR)
 	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
 
 $(STATIC_LIB): $(OBJS) | $(LIBDIR)
@@ -65,7 +65,7 @@ uninstall:
 	rm -f $(INSTALL_LIB_DIR)/lib$(LIBNAME).*
 	ldconfig
 
-FORMAT_EXTENSIONS := c h
+FORMAT_EXTENSIONS := c h cpp
 FORMAT_FILES := $(shell find . -type f \( $(foreach ext,$(FORMAT_EXTENSIONS),-name '*.$(ext)' -o ) -false \))
 
 format:
