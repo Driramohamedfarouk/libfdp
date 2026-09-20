@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#include "nvme_types.h"
 #include "nvme_util.h"
 #include "util.h"
 
