@@ -60,15 +60,17 @@ left in that reclaim unit:
 ```cpp
 #include <fdp.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 int main() {
     int fd = fdp_open("/dev/nvme0n1", O_RDWR);
     if (fd < 0) {
-        perror("fdp_open");
-        return 1;
+        printf("fdp_open failed: %s\n", strerror(errno));
+        exit(1);
     }
 
     void *buf = nullptr;
@@ -113,3 +115,15 @@ sudo ./build/myapp
 Change `/dev/nvme0n1` to your own namespace. `fdp_pwrite` takes the same
 arguments as `pwrite`, plus the placement identifier that tells the drive which
 reclaim unit the data belongs to.
+
+On failure, `fdp_open` returns `-1` and sets `errno` to indicate the cause, so
+`strerror(errno)` is enough to report it. The values it currently sets:
+
+| `errno`         | Meaning                                              |
+|-----------------|-------------------------------------------------------|
+| `EINVAL`        | Not a valid NVMe block device name                   |
+| `EACCES`        | Not running with sufficient privileges (usually root) |
+| `ENAMETOOLONG`  | Device name too long                                 |
+| `ENOMEM`        | Allocation failed                                    |
+| `EIO`           | Failed to read the device's NVMe attributes          |
+| `ENOTSUP`       | The device/namespace does not support FDP            |
