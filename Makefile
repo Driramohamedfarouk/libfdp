@@ -1,7 +1,7 @@
 CC = g++
 CFLAGS = -std=c++11 -Wall -Wextra -fPIC -luring -lpthread -g # -O0
 # TARGET = nvme_check
-LDFLAGS = 
+LDFLAGS =
 
 # without lib prefix
 LIBNAME = fdp
@@ -66,7 +66,8 @@ uninstall:
 	ldconfig
 
 FORMAT_EXTENSIONS := c h cpp
-FORMAT_FILES := $(shell find . -type f \( $(foreach ext,$(FORMAT_EXTENSIONS),-name '*.$(ext)' -o ) -false \))
+FORMAT_DIRS := src include
+FORMAT_FILES := $(shell find $(FORMAT_DIRS) -type f \( $(foreach ext,$(FORMAT_EXTENSIONS),-name '*.$(ext)' -o ) -false \))
 
 format:
 	@echo "Formatting source files with clang-format..."

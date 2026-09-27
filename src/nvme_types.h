@@ -27,8 +27,7 @@ typedef int rc_t;
  *
  * Returns: The 'name' field from 'value'
  */
-#define NVME_SET(value, name)                                                  \
-	(((__u32)(value) & NVME_##name##_MASK) << NVME_##name##_SHIFT)
+#define NVME_SET(value, name) (((__u32)(value) & NVME_##name##_MASK) << NVME_##name##_SHIFT)
 
 // Reference: https://github.com/axboe/fio/blob/master/engines/nvme.h
 // If the uapi headers installed on the system lacks nvme uring command
@@ -36,24 +35,24 @@ typedef int rc_t;
 #ifndef CONFIG_NVME_URING_CMD
 #include <linux/types.h>
 struct nvme_uring_cmd {
-	__u8 opcode;
-	__u8 flags;
-	__u16 rsvd1;
-	__u32 nsid;
-	__u32 cdw2;
-	__u32 cdw3;
-	__u64 metadata;
-	__u64 addr;
-	__u32 metadata_len;
-	__u32 data_len;
-	__u32 cdw10;
-	__u32 cdw11;
-	__u32 cdw12;
-	__u32 cdw13;
-	__u32 cdw14;
-	__u32 cdw15;
-	__u32 timeout_ms;
-	__u32 rsvd2;
+    __u8 opcode;
+    __u8 flags;
+    __u16 rsvd1;
+    __u32 nsid;
+    __u32 cdw2;
+    __u32 cdw3;
+    __u64 metadata;
+    __u64 addr;
+    __u32 metadata_len;
+    __u32 data_len;
+    __u32 cdw10;
+    __u32 cdw11;
+    __u32 cdw12;
+    __u32 cdw13;
+    __u32 cdw14;
+    __u32 cdw15;
+    __u32 timeout_ms;
+    __u32 rsvd2;
 };
 
 /**
@@ -79,24 +78,24 @@ struct nvme_uring_cmd {
  * @result:	Set on completion to the command's CQE DWORD 0 controller response
  */
 struct nvme_passthru_cmd {
-	__u8 opcode;
-	__u8 flags;
-	__u16 rsvd1;
-	__u32 nsid;
-	__u32 cdw2;
-	__u32 cdw3;
-	__u64 metadata;
-	__u64 addr;
-	__u32 metadata_len;
-	__u32 data_len;
-	__u32 cdw10;
-	__u32 cdw11;
-	__u32 cdw12;
-	__u32 cdw13;
-	__u32 cdw14;
-	__u32 cdw15;
-	__u32 timeout_ms;
-	__u32 result;
+    __u8 opcode;
+    __u8 flags;
+    __u16 rsvd1;
+    __u32 nsid;
+    __u32 cdw2;
+    __u32 cdw3;
+    __u64 metadata;
+    __u64 addr;
+    __u32 metadata_len;
+    __u32 data_len;
+    __u32 cdw10;
+    __u32 cdw11;
+    __u32 cdw12;
+    __u32 cdw13;
+    __u32 cdw14;
+    __u32 cdw15;
+    __u32 timeout_ms;
+    __u32 result;
 };
 
 #define NVME_URING_CMD_IO _IOWR('N', 0x80, struct nvme_uring_cmd)
@@ -107,56 +106,56 @@ struct nvme_passthru_cmd {
 #define NVME_DEFAULT_IOCTL_TIMEOUT 0
 
 enum nvme_io_mgmt_recv_mo {
-	NVME_IO_MGMT_RECV_RUH_STATUS = 0x1,
+    NVME_IO_MGMT_RECV_RUH_STATUS = 0x1,
 };
 
 struct nvme_fdp_ruh_status_desc {
-	uint16_t pid;
-	uint16_t ruhid;
-	uint32_t earutr;
-	uint64_t ruamw;
-	uint8_t rsvd16[16];
+    uint16_t pid;
+    uint16_t ruhid;
+    uint32_t earutr;
+    uint64_t ruamw;
+    uint8_t rsvd16[16];
 };
 
 struct nvme_fdp_ruh_status {
-	uint8_t rsvd0[14];
-	uint16_t nruhsd;
-	struct nvme_fdp_ruh_status_desc ruhss[];
+    uint8_t rsvd0[14];
+    uint16_t nruhsd;
+    struct nvme_fdp_ruh_status_desc ruhss[];
 };
 
 enum nvme_io_opcode {
-	nvme_cmd_write = 0x01,
-	nvme_cmd_read = 0x02,
-	nvme_cmd_io_mgmt_recv = 0x12,
-	nvme_cmd_io_mgmt_send = 0x1d,
+    nvme_cmd_write = 0x01,
+    nvme_cmd_read = 0x02,
+    nvme_cmd_io_mgmt_recv = 0x12,
+    nvme_cmd_io_mgmt_send = 0x1d,
 };
 
 enum nvme_cmd_dword_fields {
-	NVME_LOG_CDW10_LID_SHIFT = 0,
-	NVME_LOG_CDW10_LSP_SHIFT = 8,
-	NVME_LOG_CDW10_RAE_SHIFT = 15,
-	NVME_LOG_CDW10_NUMDL_SHIFT = 16,
-	NVME_LOG_CDW11_NUMDU_SHIFT = 0,
-	NVME_LOG_CDW11_LSI_SHIFT = 16,
-	NVME_LOG_CDW14_UUID_SHIFT = 0,
-	NVME_LOG_CDW14_CSI_SHIFT = 24,
-	NVME_LOG_CDW14_OT_SHIFT = 23,
-	NVME_LOG_CDW10_LID_MASK = 0xff,
-	NVME_LOG_CDW10_LSP_MASK = 0x7f,
-	NVME_LOG_CDW10_RAE_MASK = 0x1,
-	NVME_LOG_CDW10_NUMDL_MASK = 0xffff,
-	NVME_LOG_CDW11_NUMDU_MASK = 0xffff,
-	NVME_LOG_CDW11_LSI_MASK = 0xffff,
-	NVME_LOG_CDW14_UUID_MASK = 0x7f,
-	NVME_LOG_CDW14_CSI_MASK = 0xff,
-	NVME_LOG_CDW14_OT_MASK = 0x1,
+    NVME_LOG_CDW10_LID_SHIFT = 0,
+    NVME_LOG_CDW10_LSP_SHIFT = 8,
+    NVME_LOG_CDW10_RAE_SHIFT = 15,
+    NVME_LOG_CDW10_NUMDL_SHIFT = 16,
+    NVME_LOG_CDW11_NUMDU_SHIFT = 0,
+    NVME_LOG_CDW11_LSI_SHIFT = 16,
+    NVME_LOG_CDW14_UUID_SHIFT = 0,
+    NVME_LOG_CDW14_CSI_SHIFT = 24,
+    NVME_LOG_CDW14_OT_SHIFT = 23,
+    NVME_LOG_CDW10_LID_MASK = 0xff,
+    NVME_LOG_CDW10_LSP_MASK = 0x7f,
+    NVME_LOG_CDW10_RAE_MASK = 0x1,
+    NVME_LOG_CDW10_NUMDL_MASK = 0xffff,
+    NVME_LOG_CDW11_NUMDU_MASK = 0xffff,
+    NVME_LOG_CDW11_LSI_MASK = 0xffff,
+    NVME_LOG_CDW14_UUID_MASK = 0x7f,
+    NVME_LOG_CDW14_CSI_MASK = 0xff,
+    NVME_LOG_CDW14_OT_MASK = 0x1,
 };
 
 enum nvme_cmd_get_log_lid {
-	NVME_LOG_LID_FDP_CONFIGS = 0x20,
-	NVME_LOG_LID_FDP_RUH_USAGE = 0x21,
-	NVME_LOG_LID_FDP_STATS = 0x22,
-	NVME_LOG_LID_FDP_EVENTS = 0x23,
+    NVME_LOG_LID_FDP_CONFIGS = 0x20,
+    NVME_LOG_LID_FDP_RUH_USAGE = 0x21,
+    NVME_LOG_LID_FDP_STATS = 0x22,
+    NVME_LOG_LID_FDP_EVENTS = 0x23,
 };
 
 /**
@@ -181,26 +180,26 @@ enum nvme_cmd_get_log_lid {
  *		into the log page.
  */
 struct nvme_get_log_args {
-	__u64 lpo;
-	__u32 *result;
-	void *log;
-	int args_size;
-	int fd;
-	__u32 timeout;
-	enum nvme_cmd_get_log_lid lid;
-	__u32 len;
-	__u32 nsid;
-	// enum nvme_csi csi;
-	__u8 csi;
-	__u16 lsi;
-	__u8 lsp;
-	__u8 uuidx;
-	bool rae;
-	bool ot;
+    __u64 lpo;
+    __u32* result;
+    void* log;
+    int args_size;
+    int fd;
+    __u32 timeout;
+    enum nvme_cmd_get_log_lid lid;
+    __u32 len;
+    __u32 nsid;
+    // enum nvme_csi csi;
+    __u8 csi;
+    __u16 lsi;
+    __u8 lsp;
+    __u8 uuidx;
+    bool rae;
+    bool ot;
 };
 
 enum nvme_admin_opcode {
-	nvme_admin_get_log_page = 0x02,
+    nvme_admin_get_log_page = 0x02,
 };
 
 // extern thread_local struct io_uring tls_ring;
@@ -213,24 +212,24 @@ enum nvme_admin_opcode {
 // This is why include/fdp.h only forward-declares fdp_dev_t as an opaque
 // handle: callers are only ever meant to interact through the fd.
 struct fdp_dev {
-	char name[20];
-	// device generic name
-	char g_name[20];
-	// file handle tp the block device
-	int bdev_fd;
-	// file handle of the generic device
-	int g_fd;
-	// namespace id to extract from the device
-	uint16_t nsid;
-	uint16_t lba_size;
-	uint32_t max_transfer_size;
-	uint16_t nruh;
-	/** The sole purpouse of this io_uring instance is to handle
-	synchronous fdp_pwrite. If multiple threads are using the
-	library we need to protect access to the ring.*/
-	struct io_uring ring;
-	// callback registered with the fdp_dev, maybe transform this to a list of
-	// callbacks
-	void (*gc_callback)(void);
-	// thrd_t gc_listener_thread;
+    char name[20];
+    // device generic name
+    char g_name[20];
+    // file handle tp the block device
+    int bdev_fd;
+    // file handle of the generic device
+    int g_fd;
+    // namespace id to extract from the device
+    uint16_t nsid;
+    uint16_t lba_size;
+    uint32_t max_transfer_size;
+    uint16_t nruh;
+    /** The sole purpouse of this io_uring instance is to handle
+    synchronous fdp_pwrite. If multiple threads are using the
+    library we need to protect access to the ring.*/
+    struct io_uring ring;
+    // callback registered with the fdp_dev, maybe transform this to a list of
+    // callbacks
+    void (*gc_callback)(void);
+    // thrd_t gc_listener_thread;
 };
