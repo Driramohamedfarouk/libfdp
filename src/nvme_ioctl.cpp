@@ -35,6 +35,54 @@ int nvme_io_mgmt_recv(fdp_dev_t* dev, void* data, uint32_t data_len, uint8_t op,
     return ioctl(dev->g_fd, NVME_IOCTL_IO_CMD, &cmd);
 }
 
+struct nvme_fdp_config_log* nvme_fdp_config(fdp_dev_t* dev)
+{
+    struct nvme_fdp_config_log hdr;
+    struct nvme_fdp_config_log* log;
+    int err;
+
+    struct nvme_get_log_args args = {
+        .lpo = 0,
+        .result = NULL,
+        .log = &hdr,
+        .args_size = sizeof(args),
+        .fd = dev->g_fd,
+        .timeout = NVME_DEFAULT_IOCTL_TIMEOUT,
+        .lid = NVME_LOG_LID_FDP_CONFIGS,
+        .len = sizeof(hdr),
+        .nsid = 0,  // nsid is not used for this command
+        .csi = 0,
+        .lsi = 1,  // endurance group id should be 1
+        .lsp = 0,
+        .uuidx = 0,
+    };
+
+    // Read the log page header first to learn its real size (it varies
+    // with the number of configurations and their RUH lists).
+    err = nvme_get_log(&args);
+    if (err) {
+        XLOGF("ERR", "failed to get FDP config log header, fd: %d", dev->g_fd);
+        return NULL;
+    }
+
+    log = (struct nvme_fdp_config_log*)malloc(hdr.sze);
+    if (log == NULL) {
+        XLOGF("ERR", "malloc failed");
+        return NULL;
+    }
+
+    args.log = log;
+    args.len = hdr.sze;
+    err = nvme_get_log(&args);
+    if (err) {
+        XLOGF("ERR", "failed to get FDP config log, fd: %d", dev->g_fd);
+        free(log);
+        return NULL;
+    }
+
+    return log;
+}
+
 // taken as is from libnvme ioctl.c
 int nvme_get_log(struct nvme_get_log_args* args)
 {

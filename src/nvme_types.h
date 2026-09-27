@@ -123,6 +123,37 @@ struct nvme_fdp_ruh_status {
     struct nvme_fdp_ruh_status_desc ruhss[];
 };
 
+// FDP Configurations log page (NVMe TP4146 5.1), read once at fdp_open()
+// time for the Reclaim Unit Nominal Size (RUNS): the size, in bytes, of a
+// fully-fresh Reclaim Unit for this FDP configuration.
+struct nvme_fdp_ruh_desc {
+    uint8_t ruht;
+    uint8_t rsvd1[7];
+};
+
+struct nvme_fdp_config_desc {
+    uint16_t dsze;
+    uint8_t fdpa;
+    uint8_t vss;
+    uint32_t nrg;
+    uint16_t nruh;
+    uint16_t maxpids;
+    uint32_t nns;
+    uint64_t runs;
+    uint32_t erutl;
+    uint8_t rsvd28[36];
+    struct nvme_fdp_ruh_desc ruhs[];
+};
+
+struct nvme_fdp_config_log {
+    uint16_t numfdpc;
+    uint8_t ver;
+    uint8_t rsvd3;
+    uint32_t sze;
+    uint8_t rsvd8[8];
+    struct nvme_fdp_config_desc configs[];
+};
+
 enum nvme_io_opcode {
     nvme_cmd_write = 0x01,
     nvme_cmd_read = 0x02,
@@ -212,6 +243,7 @@ enum nvme_admin_opcode {
 // This is why include/fdp.h only forward-declares fdp_dev_t as an opaque
 // handle: callers are only ever meant to interact through the fd.
 struct fdp_dev {
+    // block device name
     char name[20];
     // device generic name
     char g_name[20];
@@ -221,9 +253,14 @@ struct fdp_dev {
     int g_fd;
     // namespace id to extract from the device
     uint16_t nsid;
+    // The size of the LBA the namespace is formatted with
     uint16_t lba_size;
+    // The maximum unit of I/O in an single NVMe command
     uint32_t max_transfer_size;
+    // Number of Reclaim Unit Handles
     uint16_t nruh;
+    // Reclaim Unit Nominal Size
+    uint32_t ru_size;
     /** The sole purpouse of this io_uring instance is to handle
     synchronous fdp_pwrite. If multiple threads are using the
     library we need to protect access to the ring.*/

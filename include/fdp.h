@@ -71,7 +71,15 @@ int open_ru_timer(void* arg);
 /////////////////////////////////////////////////////////////////////////////////
 
 /**
+ Returns the nominal size, of a Reclaim Unit on this device
+ -- what fdp_get_remaining_bytes_in_ru() reports once a Reclaim Unit is fully fresh.
+ On failure, -1 with errno set (EBADF if fd is not an open fdp device).
+*/
+ssize_t fdp_get_ru_size(int fd);
+
+/**
  Returns the number of ruh available to write to in an opened FDP device on success.
+ On failure, -1 with errno set (EBADF if fd is not an open fdp device).
 */
 int fdp_get_nruh(int fd);
 

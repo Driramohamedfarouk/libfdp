@@ -69,12 +69,12 @@ static int read_nvme_info(fdp_dev_t* dev)
     return 0;  // success
 }
 
-// This is part of the library interface
 int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
 {
     int bdev_fd = -1, g_fd = -1;
     fdp_dev_t* dev = NULL;
     struct nvme_fdp_ruh_status* fdp_status = NULL;
+    struct nvme_fdp_config_log* config_log = NULL;
     int rc;
     int saved_errno = 0;
 
@@ -152,12 +152,6 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
         goto err_close_g;
     }
 
-    // TODO(mfd) : Determine device costant configuratuion, like the size of the
-    // RU,
-    //  the number of reclaim groups... Determine also the features supported by
-    //  the
-    //   device in term of statistics reporting... etc
-
     // Validate that the device/namespace actually supports FDP: the RUH
     // status log can fail to read (unsupported log page, insufficient
     // privileges, ...) or come back with zero reclaim unit handles, neither
@@ -187,6 +181,19 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
     XLOGF("INFO", "The number of RUHs in %s is %u", dev->name, dev->nruh);
     free(fdp_status);
     fdp_status = NULL;
+
+    // Read the Reclaim Unit Nominal size.
+    config_log = nvme_fdp_config(dev);
+    if (config_log == NULL || config_log->numfdpc == 0) {
+        XLOGF("ERR", "%s: failed to read FDP configuration (RU size)", bdev_name);
+        free(config_log);
+        saved_errno = ENOTSUP;
+        goto err_close_g;
+    }
+    dev->ru_size = config_log->configs[0].runs;
+    XLOGF("INFO", "The reclaim unit size in %s is %lu bytes", dev->name, dev->ru_size);
+    free(config_log);
+    config_log = NULL;
 
     // Initialize the io_uring instance used by this device.
     // TODO(mfd) : read the queue length from the device and place it here,

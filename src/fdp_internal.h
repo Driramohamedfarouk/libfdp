@@ -45,3 +45,4 @@ int nvme_io_mgmt_recv(fdp_dev_t* dev, void* data, uint32_t data_len, uint8_t op,
 int nvme_get_log(struct nvme_get_log_args* args);
 int nvme_fdp_reclaim_unit_handle_update(int fd, __u32 nsid, unsigned int npids, __u16* pids);
 struct nvme_fdp_ruh_status* nvme_fdp_status(fdp_dev_t* dev);
+struct nvme_fdp_config_log* nvme_fdp_config(fdp_dev_t* dev);

@@ -12,6 +12,12 @@
 #include "nvme_types.h"
 #include "util.h"
 
+ssize_t fdp_get_ru_size(int fd)
+{
+    FDP_GET_DEV_OR_RETURN(dev, fd);
+    return (ssize_t)dev->ru_size;
+}
+
 int fdp_get_nruh(int fd)
 {
     FDP_GET_DEV_OR_RETURN(dev, fd);
@@ -51,8 +57,6 @@ ssize_t fdp_get_remaining_bytes_in_ru(int fd, plid_t plid)
         return -1;
     }
 
-    // TODO(mfd) : check for errors like invalid plid, uninitialized device
-    // and return error codes you define in the interface of this libray
     desc = &status->ruhss[plid];
     // For now just assert valid input, I better not misuse a library I am
     // writing
