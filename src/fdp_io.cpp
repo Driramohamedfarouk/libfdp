@@ -109,7 +109,7 @@ ssize_t fdp_pwrite(int fd, void* buf, size_t count, off_t offset, uint16_t plid)
     return cqe_ptr->res == 0 ? count : cqe_ptr->res;
 }
 
-void fdp_io_uring_prep_write(struct io_uring_sqe* sqe, int fd, const void* buf, unsigned count, __u64 offset, uint16_t plid)
+void fdp_io_uring_prep_write(struct io_uring_sqe* sqe, int fd, const void* buf, unsigned count, uint64_t offset, uint16_t plid)
 {
     fdp_dev_t* dev = get_fdp_dev(fd);
     sqe = prep_passthrough_cmd(dev, buf, count, offset, 1, plid, sqe);
