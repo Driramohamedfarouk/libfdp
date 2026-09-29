@@ -48,6 +48,23 @@ void fdp_close(int fd);
 // synchronous pwrite with plid (placement id)
 ssize_t fdp_pwrite(int fd, void* buf, size_t count, off_t offset, uint16_t plid);
 
+/**
+ Prepares an FDP-directed write into a caller-supplied, caller-owned
+ io_uring SQE (fdp_pwrite() uses this internally, against its own ring, for
+ the synchronous case). Like the raw liburing io_uring_prep_*() functions,
+ this never fails synchronously: if fd is not an open fdp device, the SQE
+ is still prepared (targeting fd as given) and submission is left to fail
+ normally, reporting the error (-EBADF, or -ENOTTY/-EINVAL if fd is valid
+ but not an FDP-capable NVMe char device) through cqe->res at completion,
+ exactly like any other bad-fd io_uring request.
+
+ The ring `sqe` comes from MUST have been created with
+ IORING_SETUP_SQE128 | IORING_SETUP_CQE32 -- the NVMe passthrough command
+ this writes into `sqe->cmd` does not fit in a standard-size SQE, and
+ there is no way to detect a mismatched ring from a bare io_uring_sqe*
+ here: getting this wrong silently corrupts adjacent ring memory instead
+ of failing.
+*/
 void fdp_io_uring_prep_write(struct io_uring_sqe* sqe, int fd, const void* buf, unsigned count, uint64_t offset, uint16_t plid);
 
 // Sets the placement id of an already filled sqe
