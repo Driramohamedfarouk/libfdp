@@ -4,7 +4,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <liburing.h>
 #include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -75,7 +74,6 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
     fdp_dev_t* dev = NULL;
     struct nvme_fdp_ruh_status* fdp_status = NULL;
     struct nvme_fdp_config_log* config_log = NULL;
-    int rc;
     int saved_errno = 0;
 
     if (!is_valid_nvme_device(bdev_name)) {
@@ -195,16 +193,6 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
     free(config_log);
     config_log = NULL;
 
-    // Initialize the io_uring instance used by this device.
-    // TODO(mfd) : read the queue length from the device and place it here,
-    // there is the io depth will be bounded by the shortest queue on the path.
-    rc = io_uring_queue_init(128, &dev->ring, IORING_SETUP_SQE128 | IORING_SETUP_CQE32);
-    if (rc != 0) {
-        XLOGF("ERR", "failed to initialize io_uring for %s: %s", bdev_name, strerror(-rc));
-        saved_errno = -rc;
-        goto err_close_g;
-    }
-
     dev->gc_callback = NULL;
 
     assert(open_fdp_devices.count(bdev_fd) == 0);
@@ -230,7 +218,6 @@ void fdp_close(int fd)
     // remove them.
     close(dev->bdev_fd);
     close(dev->g_fd);
-    io_uring_queue_exit(&dev->ring);
     // TODO(mfd) : use atomic flags to signal termination of detached thread
     free(dev);
     return;

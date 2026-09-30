@@ -261,10 +261,6 @@ struct fdp_dev {
     uint16_t nruh;
     // Reclaim Unit Nominal Size
     uint32_t ru_size;
-    /** The sole purpouse of this io_uring instance is to handle
-    synchronous fdp_pwrite. If multiple threads are using the
-    library we need to protect access to the ring.*/
-    struct io_uring ring;
     // callback registered with the fdp_dev, maybe transform this to a list of
     // callbacks
     void (*gc_callback)(void);
