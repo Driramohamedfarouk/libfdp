@@ -67,11 +67,48 @@ ssize_t fdp_pwrite(int fd, void* buf, size_t count, off_t offset, uint16_t plid)
 */
 void fdp_io_uring_prep_write(struct io_uring_sqe* sqe, int fd, const void* buf, unsigned count, uint64_t offset, uint16_t plid);
 
+/**
+ Mirror of liburing's io_uring_prep_write_fixed(): like
+ fdp_io_uring_prep_write(), but [buf, buf + count) must lie inside the
+ buffer registered at index buf_index (io_uring_register_buffers()).
+ Requires fixed buffers on NVMe passthrough.
+*/
+void fdp_io_uring_prep_write_fixed(struct io_uring_sqe* sqe, int fd, const void* buf, unsigned count, uint64_t offset, int buf_index, uint16_t plid);
+
 // Sets the placement id of an already filled sqe
 void fdp_sqe_set_plid(struct io_uring_sqe* sqe, uint16_t plid);
 
+/**
+ Registered files. The SQEs libfdp prepares do not target the block device
+ fd returned by fdp_open() but the NVMe generic char device behind it.
+ fdp_get_uring_fd() returns that fd: it is what must be passed to
+ io_uring_register_files*(). It stays owned by libfdp and is valid until
+ fdp_close(fd); unregister it from your rings before calling fdp_close().
+ On failure, -1 with errno set (EBADF if fd is not an open fdp device).
+*/
+int fdp_get_uring_fd(int fd);
+
+/**
+ Turns an already prepared sqe into a fixed-file request on the file
+ registered at file_index (sets sqe->fd and IOSQE_FIXED_FILE). Like
+ fdp_sqe_set_plid(), call it AFTER fdp_io_uring_prep_write*(), which
+ resets the whole sqe.
+*/
+void fdp_sqe_set_fixed_file(struct io_uring_sqe* sqe, unsigned file_index);
+
+/**
+ Makes an already prepared sqe use the registered buffer at buf_index.
+ fdp_io_uring_prep_write_fixed() is prep + this; same AFTER-prep rule as
+ fdp_sqe_set_fixed_file().
+*/
+void fdp_sqe_set_fixed_buf(struct io_uring_sqe* sqe, unsigned buf_index);
+
 /////////////////////////////////////////////////////////////////////////////////
-// Event management APIs, implementation lives under src/fdp_event.cpp
+// Event management APIs, implementation lives under src/fdp_events.cpp
+//
+// EXPERIMENTAL: this interface is not tested and may change or be removed
+// without notice. Do not rely on it.
+// Both interface methods here are Ad-hoc and unreliable.
 /////////////////////////////////////////////////////////////////////////////////
 
 // temporarly expose this as an interface for debugging.

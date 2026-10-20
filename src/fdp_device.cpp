@@ -23,10 +23,12 @@ linux.*/
 // std::mutex m; put it here to remember to make the library MT-safe.
 static std::unordered_map<int, fdp_dev_t*> open_fdp_devices;
 
+// Returns NULL if fd is not a currently-open fdp device. Uses find()
+// rather than operator[], which would insert a NULL entry for unknown fds.
 fdp_dev_t* get_fdp_dev(int fd)
 {
-    assert(open_fdp_devices.count(fd) == 1);
-    return open_fdp_devices[fd];
+    auto it = open_fdp_devices.find(fd);
+    return it == open_fdp_devices.end() ? NULL : it->second;
 }
 
 // Main function to read NVMe info
@@ -81,8 +83,6 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
         errno = EINVAL;
         return -1;
     }
-
-    fprintf(stderr, "%s\n", bdev_name);
 
     // NVMe passthrough ioctls need CAP_SYS_ADMIN, which in practice means root.
     if (geteuid() != 0) {
@@ -214,11 +214,13 @@ void fdp_close(int fd)
 {
     fdp_dev_t* dev;
     dev = get_fdp_dev(fd);
+    if (dev == NULL)
+        return;
+    open_fdp_devices.erase(fd);
     // if the device has any registered device callbacks
     // remove them.
     close(dev->bdev_fd);
     close(dev->g_fd);
-    // TODO(mfd) : use atomic flags to signal termination of detached thread
     free(dev);
     return;
 }

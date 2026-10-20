@@ -2,6 +2,10 @@
 // reclaim unit's remaining write capacity, and (currently disabled)
 // background GC-event notification. Distinct from the synchronous write
 // path in fdp_io.cpp.
+//
+// EXPERIMENTAL: none of this is tested; the interface may change or be
+// removed without notice.
+// Both interface methods here are Ad-hoc and unreliable.
 #include "fdp.h"
 
 #include <assert.h>
@@ -16,7 +20,7 @@
 
 int fdp_get_events(int fd, __u8* log, __u32 log_size)
 {
-    fdp_dev_t* dev = get_fdp_dev(fd);
+    FDP_GET_DEV_OR_RETURN(dev, fd);
     // construct the corresponding arg type
     struct nvme_get_log_args args = {
         // .lpo = offset,

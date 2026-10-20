@@ -20,6 +20,29 @@ void fdp_sqe_set_plid(struct io_uring_sqe* sqe, uint16_t plid)
     cmd->cdw13 = (cmd->cdw13 & 0xFFFF) | ((uint32_t)plid << 16);
 }
 
+void fdp_sqe_set_fixed_file(struct io_uring_sqe* sqe, unsigned file_index)
+{
+    assert(sqe->opcode == IORING_OP_URING_CMD);
+    sqe->fd = (int)file_index;
+    sqe->flags |= IOSQE_FIXED_FILE;
+}
+
+// NVMe passthrough takes fixed buffers through uring_cmd_flags rather than
+// a dedicated opcode (IORING_OP_WRITE_FIXED); cmd->addr keeps the user
+// address, which the kernel resolves inside registered buffer buf_index.
+void fdp_sqe_set_fixed_buf(struct io_uring_sqe* sqe, unsigned buf_index)
+{
+    assert(sqe->opcode == IORING_OP_URING_CMD);
+    sqe->uring_cmd_flags |= IORING_URING_CMD_FIXED;
+    sqe->buf_index = (__u16)buf_index;
+}
+
+int fdp_get_uring_fd(int fd)
+{
+    FDP_GET_DEV_OR_RETURN(dev, fd);
+    return dev->g_fd;
+}
+
 // Encode an FDP-directed read/write into `cmd`. Works for both
 // struct nvme_passthru_cmd (ioctl) and struct nvme_uring_cmd (io_uring),
 // which share the same field names for everything set here.
@@ -48,11 +71,19 @@ static void fill_rw_cmd(Cmd* cmd, fdp_dev_t* dev, const void* buf, size_t buf_si
 
 static void prep_passthrough_cmd(fdp_dev_t* dev, const void* buf, size_t buf_size, size_t offset, int is_write, uint16_t dspec, struct io_uring_sqe* sqe)
 {
-    // TODO(mfd) : Is there a way to do a sanity check that sqe is from
-    // a ring with BIG_SQE ?
-    sqe->fd = dev->g_fd;
+    // TODO(mfd) : Is there a way to do a sanity check that sqe is from a ring with BIG_SQE ?
+    // The slot may hold a previously used SQE, This happens when the ring is used in a mix of
+    // passthrough and non-passthrough commands.
+    memset(sqe, 0, sizeof(*sqe));
     sqe->opcode = IORING_OP_URING_CMD;
     sqe->cmd_op = NVME_URING_CMD_IO;
+    if (dev == NULL) {
+        // Not an open fdp device: leave the command empty and let submission
+        // fail with -EBADF in cqe->res, as documented in fdp.h.
+        sqe->fd = -1;
+        return;
+    }
+    sqe->fd = dev->g_fd;
     fill_rw_cmd((struct nvme_uring_cmd*)&sqe->cmd, dev, buf, buf_size, offset, is_write, dspec);
 }
 
@@ -105,4 +136,10 @@ void fdp_io_uring_prep_write(struct io_uring_sqe* sqe, int fd, const void* buf, 
     prep_passthrough_cmd(dev, buf, count, offset, 1, plid, sqe);
 
     return;
+}
+
+void fdp_io_uring_prep_write_fixed(struct io_uring_sqe* sqe, int fd, const void* buf, unsigned count, uint64_t offset, int buf_index, uint16_t plid)
+{
+    fdp_io_uring_prep_write(sqe, fd, buf, count, offset, plid);
+    fdp_sqe_set_fixed_buf(sqe, buf_index);
 }
