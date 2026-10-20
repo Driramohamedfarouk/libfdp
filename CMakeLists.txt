@@ -5,6 +5,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(FDP_INSTALL "Generate install rules for libfdp" ${PROJECT_IS_TOP_LEVEL})
+option(FDP_BUILD_EXAMPLES "Build the libfdp examples" OFF)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(uring REQUIRED IMPORTED_TARGET liburing)
@@ -30,6 +31,10 @@ set_target_properties(fdp PROPERTIES
     SOVERSION ${PROJECT_VERSION_MAJOR}
     POSITION_INDEPENDENT_CODE ON
     PUBLIC_HEADER include/fdp.h)
+
+if(FDP_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
 
 if(FDP_INSTALL)
   install(TARGETS fdp EXPORT fdpTargets

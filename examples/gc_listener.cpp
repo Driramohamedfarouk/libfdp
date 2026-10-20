@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <fcntl.h>
 #include <fdp.h>
 #include <stdio.h>
 #include <stdlib.h>
