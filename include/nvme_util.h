@@ -26,7 +26,6 @@ bool is_valid_nvme_device(const char* bdev_name)
 
 int get_nvme_char_device(const char* bdev_name, char* out_buf, size_t buf_size)
 {
-    fprintf(stderr, "get_nvme_char_dev(%s, %lu)\n", bdev_name, buf_size);
     size_t len = strlen(bdev_name);
 
     if (len < 11 || len > 15)
@@ -47,8 +46,6 @@ int get_nvme_char_device(const char* bdev_name, char* out_buf, size_t buf_size)
     strncpy(out_buf + 7, bdev_name + 9, len - pos + 1);
     // The generic device name is always 2 chars shorter
     out_buf[len - 2] = '\0';
-
-    fprintf(stderr, "%s\n", out_buf);
 
     return 0;
 }
