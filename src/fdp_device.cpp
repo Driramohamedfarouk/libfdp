@@ -11,25 +11,59 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <unordered_map>
+
+#include <mutex>
 
 #include "fdp_internal.h"
 #include "nvme_types.h"
 #include "nvme_util.h"
 #include "util.h"
 
-/** map from the file descriptor of the block device to the struct
-struct fdp_dev, this is analog to struct file[] inside struct task_struct in
-linux.*/
-// std::mutex m; put it here to remember to make the library MT-safe.
-static std::unordered_map<int, fdp_dev_t*> open_fdp_devices;
+/** Table of open fdp devices, indexed by the file descriptor of the block
+device, this is analog to struct file[] inside struct task_struct in linux.
+The common case is a single open device, so a small fixed-size array scanned
+linearly beats a hash map. A slot is free iff dev == NULL.
 
-// Returns NULL if fd is not a currently-open fdp device. Uses find()
-// rather than operator[], which would insert a NULL entry for unknown fds.
+Thread safety: fdp_open/fdp_close serialize on open_fdp_devices_lock, lookups
+(get_fdp_dev) take no lock.
+
+As with close(2) racing with pwrite(2) on the same fd, calling fdp_close(fd)
+while another thread is still using fd is a caller bug: that thread may hold a
+dev that fdp_close() frees under it. */
+#define FDP_MAX_OPEN_DEVICES 16
+
+struct fdp_dev_slot {
+    int fd;  // block device fd, the handle returned by fdp_open()
+    fdp_dev_t* dev;
+};
+
+static std::mutex open_fdp_devices_lock;
+static struct fdp_dev_slot open_fdp_devices[FDP_MAX_OPEN_DEVICES];
+
+static struct fdp_dev_slot* find_slot(int fd)
+{
+    for (int i = 0; i < FDP_MAX_OPEN_DEVICES; i++) {
+        if (open_fdp_devices[i].dev != NULL && open_fdp_devices[i].fd == fd)
+            return &open_fdp_devices[i];
+    }
+    return NULL;
+}
+
+// Caller must hold open_fdp_devices_lock.
+static struct fdp_dev_slot* find_free_slot(void)
+{
+    for (int i = 0; i < FDP_MAX_OPEN_DEVICES; i++) {
+        if (open_fdp_devices[i].dev == NULL)
+            return &open_fdp_devices[i];
+    }
+    return NULL;
+}
+
+// Returns NULL if fd is not a currently-open fdp device.
 fdp_dev_t* get_fdp_dev(int fd)
 {
-    auto it = open_fdp_devices.find(fd);
-    return it == open_fdp_devices.end() ? NULL : it->second;
+    struct fdp_dev_slot* slot = find_slot(fd);
+    return slot == NULL ? NULL : slot->dev;
 }
 
 // Main function to read NVMe info
@@ -71,6 +105,7 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
     fdp_dev_t* dev = NULL;
     struct nvme_fdp_ruh_status* fdp_status = NULL;
     struct nvme_fdp_config_log* config_log = NULL;
+    struct fdp_dev_slot* slot = NULL;
     int saved_errno = 0;
 
     if (!is_valid_nvme_device(bdev_name)) {
@@ -190,8 +225,20 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
 
     dev->gc_callback = NULL;
 
-    assert(open_fdp_devices.count(bdev_fd) == 0);
-    open_fdp_devices[bdev_fd] = dev;
+    {
+        std::lock_guard<std::mutex> lock(open_fdp_devices_lock);
+        assert(find_slot(bdev_fd) == NULL);
+        slot = find_free_slot();
+        if (slot != NULL) {
+            slot->fd = bdev_fd;
+            slot->dev = dev;
+        }
+    }
+    if (slot == NULL) {
+        XLOGF("ERR", "too many open fdp devices (max %d)", FDP_MAX_OPEN_DEVICES);
+        saved_errno = EMFILE;
+        goto err_close_g;
+    }
 
     return bdev_fd;
 
@@ -208,10 +255,16 @@ err_close_bdev:
 void fdp_close(int fd)
 {
     fdp_dev_t* dev;
-    dev = get_fdp_dev(fd);
-    if (dev == NULL)
-        return;
-    open_fdp_devices.erase(fd);
+    {
+        std::lock_guard<std::mutex> lock(open_fdp_devices_lock);
+        struct fdp_dev_slot* slot = find_slot(fd);
+        if (slot == NULL)
+            return;
+        dev = slot->dev;
+        // Unpublish before close() so that the kernel cannot hand bdev_fd to
+        // a concurrent open() while the slot still maps it to this dev.
+        slot->dev = NULL;
+    }
     // if the device has any registered device callbacks
     // remove them.
     close(dev->bdev_fd);
