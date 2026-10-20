@@ -260,7 +260,7 @@ struct fdp_dev {
     // Number of Reclaim Unit Handles
     uint16_t nruh;
     // Reclaim Unit Nominal Size
-    uint32_t ru_size;
+    uint64_t ru_size;
     // callback registered with the fdp_dev, maybe transform this to a list of
     // callbacks
     void (*gc_callback)(void);

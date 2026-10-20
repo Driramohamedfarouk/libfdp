@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <regex.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -176,14 +177,14 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
 
     // Read the Reclaim Unit Nominal size.
     config_log = nvme_fdp_config(dev);
-    if (config_log == NULL || config_log->numfdpc == 0) {
+    if (config_log == NULL) {
         XLOGF("ERR", "%s: failed to read FDP configuration (RU size)", bdev_name);
         free(config_log);
         saved_errno = ENOTSUP;
         goto err_close_g;
     }
     dev->ru_size = config_log->configs[0].runs;
-    XLOGF("INFO", "The reclaim unit size in %s is %u bytes", dev->name, dev->ru_size);
+    XLOGF("INFO", "The reclaim unit size in %s is %" PRIu64 " bytes", dev->name, dev->ru_size);
     free(config_log);
     config_log = NULL;
 

@@ -65,6 +65,13 @@ struct nvme_fdp_config_log* nvme_fdp_config(fdp_dev_t* dev)
         return NULL;
     }
 
+    // The log must hold at least the header and one 64-byte configuration
+    // descriptor (whose fixed part ends at ruhs[]).
+    if (hdr.sze < sizeof(hdr) + sizeof(struct nvme_fdp_config_desc)) {
+        XLOGF("ERR", "FDP config log too small (%u bytes), fd: %d", hdr.sze, dev->g_fd);
+        return NULL;
+    }
+
     log = (struct nvme_fdp_config_log*)malloc(hdr.sze);
     if (log == NULL) {
         XLOGF("ERR", "malloc failed");
