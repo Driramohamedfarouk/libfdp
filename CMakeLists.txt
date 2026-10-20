@@ -4,6 +4,10 @@ project(fdp VERSION 0.1.0 LANGUAGES CXX)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build Type" FORCE)
+endif()
+
 option(FDP_INSTALL "Generate install rules for libfdp" ${PROJECT_IS_TOP_LEVEL})
 option(FDP_BUILD_EXAMPLES "Build the libfdp examples" OFF)
 
