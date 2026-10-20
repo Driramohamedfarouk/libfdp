@@ -31,6 +31,10 @@ int get_nvme_char_device(const char* bdev_name, char* out_buf, size_t buf_size)
     if (len < 11 || len > 15)
         return -1;
 
+    // The generic device name is len - 2 chars plus the null terminator
+    if (len - 1 > buf_size)
+        return -1;
+
     if (strncmp(bdev_name, nvme_dev_prefix, sizeof(nvme_dev_prefix) - 1) != 0)
         return -1;
 

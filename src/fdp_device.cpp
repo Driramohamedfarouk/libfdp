@@ -35,12 +35,6 @@ fdp_dev_t* get_fdp_dev(int fd)
 static int read_nvme_info(fdp_dev_t* dev)
 {
     char ns_name[64] = {0};
-    // char part_name[64] = {0};
-
-    if (!dev->name) {
-        XLOGF("ERR", "Invalid input to read_nvme_info");
-        return -1;
-    }
 
     // Extract ns and partition names
     // get_ns_and_partition(bdev_name, ns_name, part_name);
@@ -189,7 +183,7 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
         goto err_close_g;
     }
     dev->ru_size = config_log->configs[0].runs;
-    XLOGF("INFO", "The reclaim unit size in %s is %lu bytes", dev->name, dev->ru_size);
+    XLOGF("INFO", "The reclaim unit size in %s is %u bytes", dev->name, dev->ru_size);
     free(config_log);
     config_log = NULL;
 

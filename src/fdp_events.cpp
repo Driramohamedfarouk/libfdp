@@ -59,7 +59,7 @@ int open_ru_timer(void* arg)
         }
         // XXX(mfd) : This is buggy because the results of remaining media
         // writes returned by the device fluctuate
-        if (ruamw > last_seen_ruamw) {
+        if ((__u64)ruamw > last_seen_ruamw) {
             open_ru++;
             XLOGF("INFO", "RUAMW = %ld", ruamw);
             XLOGF("INFO", "Open the new RU #%u", open_ru);
@@ -75,6 +75,7 @@ int open_ru_timer(void* arg)
     return 0;
 }
 
+#if 0
 // This is the function that will be run by the deamon
 /** TODO(mfd) : Usually GC is not triggered until late, adapt sleeping time
 so that we don't have unecessary wakeups. */
@@ -115,7 +116,6 @@ static int gc_event_listener(void* arg)
     return 0;
 }
 
-/*
 void fdp_register_gc_callback(int fd, void (*gc_callback)(void)) {
         // if this is the first registered callback fire up the deamon thread
         // use a mutex here when making the library MT-Safe.
@@ -134,4 +134,4 @@ void fdp_register_gc_callback(int fd, void (*gc_callback)(void)) {
         XLOGF("WARNING", "There is already a registered callback, for now we "
                                          "support only one callback");
 }
-*/
+#endif

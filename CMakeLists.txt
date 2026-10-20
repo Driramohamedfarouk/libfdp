@@ -19,6 +19,7 @@ add_library(fdp
 add_library(fdp::fdp ALIAS fdp)
 
 target_compile_features(fdp PUBLIC cxx_std_11)
+target_compile_options(fdp PRIVATE -Wno-missing-field-initializers)
 target_link_libraries(fdp PUBLIC PkgConfig::uring Threads::Threads)
 target_include_directories(fdp PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
