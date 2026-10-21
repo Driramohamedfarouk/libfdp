@@ -4,6 +4,7 @@
 // etc.) are not part of this interface and live in src/nvme_types.h instead.
 #include <unistd.h>
 #include <cstdint>
+#include <functional>
 
 // Opaque handle: the definition of fdp_dev is private to the implementation
 // (src/nvme_types.h). Callers only ever interact with a device through the
@@ -114,10 +115,34 @@ void fdp_sqe_set_fixed_buf(struct io_uring_sqe* sqe, unsigned buf_index);
 // temporarly expose this as an interface for debugging.
 int fdp_get_events(int fd, uint8_t* log, uint32_t log_size);
 
-// This is part of the interface, the callback now does not take any parameter
-// mainly because no driver has any meaningful results for the media relocation
-// event. We may change this later.
-// void fdp_register_gc_callback(int fd, void (*gc_callback)(void));
+/**
+ Registers `callback` to be invoked once per device GC event (FDP "Media
+ Reallocated" event) that happens after registration. Any callable works:
+ function, capturing lambda, functor, std::bind result. It takes no
+ parameter because no device reports anything meaningful with the event.
+
+ The events log is polled once per second from a background thread, which
+ is where `callback` runs; it must be thread-safe w.r.t. the caller and
+ must not call fdp_close(fd) or fdp_unregister_gc_callback(fd).
+ fdp_unregister_gc_callback(fd), or fdp_close(fd), stops the thread and
+ destroys `callback`. Only one callback per device is supported.
+
+ On failure, -1 with errno set: EBADF, EINVAL (empty callback), EBUSY
+ (a callback is already registered), EIO (the FDP events log could not be
+ read), or the error from creating the thread.
+*/
+int fdp_register_gc_callback(int fd, std::function<void()> callback);
+
+/**
+ Stops the GC listener thread of fd and destroys the registered callback.
+ When it returns, the callback is not running and will never run again, so
+ whatever it captured may be released. A new callback can then be
+ registered.
+ On failure, -1 with errno set: EBADF, ENOENT (no callback registered), or
+ EDEADLK (called from inside the callback).
+*/
+int fdp_unregister_gc_callback(int fd);
+
 int open_ru_timer(void* arg);
 
 /////////////////////////////////////////////////////////////////////////////////

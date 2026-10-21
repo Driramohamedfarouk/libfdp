@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-void callback(void) { printf("Hello\n"); }
 
 int main(int argc, char *argv[]) {
 	int err, fd;
@@ -29,8 +28,9 @@ int main(int argc, char *argv[]) {
 	nb_gc_events = *(uint32_t *)buffer;
 	printf("Number of FDP Events is %u\n", nb_gc_events);
 	for (uint32_t e = 0; e < nb_gc_events; e++) {
-		uint8_t type = *(uint8_t *)(buffer + 64 * e);
-		uint64_t timestamp = *(uint64_t *)(buffer + 64 * e + 4);
+		// Events start after the 64-byte log header.
+		uint8_t type = *(uint8_t *)(buffer + 64 * (e + 1));
+		uint64_t timestamp = *(uint64_t *)(buffer + 64 * (e + 1) + 4);
 		time_t rawtime = (time_t)timestamp;
 		struct tm *info;
 
@@ -44,8 +44,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 	free(buffer);
-	// fdp_register_gc_callback(&dev, callback);
-	// while(1);
 	// open_ru_timer((void *)&dev);
 	fdp_close(fd);
 	return 0;

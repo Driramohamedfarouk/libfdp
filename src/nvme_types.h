@@ -261,8 +261,7 @@ struct fdp_dev {
     uint16_t nruh;
     // Reclaim Unit Nominal Size
     uint64_t ru_size;
-    // callback registered with the fdp_dev, maybe transform this to a list of
-    // callbacks
-    void (*gc_callback)(void);
-    // thrd_t gc_listener_thread;
+    // Background GC event listener, NULL until fdp_register_gc_callback().
+    // Defined in fdp_events.cpp.
+    struct fdp_gc_listener* gc_listener;
 };

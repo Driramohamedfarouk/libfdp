@@ -26,3 +26,8 @@ target_link_libraries(reset_ru PRIVATE fdp::fdp)
 # (fdp_get_uring_fd, fdp_io_uring_prep_write_fixed, fdp_sqe_set_fixed_file).
 add_executable(fixed_write fixed_write.cpp)
 target_link_libraries(fixed_write PRIVATE fdp::fdp)
+
+# Counts device GC events with a capturing lambda passed to
+# fdp_register_gc_callback(), and unregisters it.
+add_executable(gc_callback gc_callback.cpp)
+target_link_libraries(gc_callback PRIVATE fdp::fdp)

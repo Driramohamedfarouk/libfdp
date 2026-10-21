@@ -223,7 +223,7 @@ int fdp_open(const char* bdev_name, int flags, ... /* mode_t mode */)
     free(config_log);
     config_log = NULL;
 
-    dev->gc_callback = NULL;
+    dev->gc_listener = NULL;
 
     {
         std::lock_guard<std::mutex> lock(open_fdp_devices_lock);
@@ -265,8 +265,8 @@ void fdp_close(int fd)
         // a concurrent open() while the slot still maps it to this dev.
         slot->dev = NULL;
     }
-    // if the device has any registered device callbacks
-    // remove them.
+    // Join the listener first: it reads the events log through dev.
+    fdp_stop_gc_listener(dev);
     close(dev->bdev_fd);
     close(dev->g_fd);
     free(dev);

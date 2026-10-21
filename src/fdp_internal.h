@@ -40,6 +40,11 @@ fdp_dev_t* get_fdp_dev(int fd);
         }                                                                             \
     } while (0)
 
+// Like fdp_unregister_gc_callback(), but a no-op if there is no listener
+// and errno is preserved. Defined in fdp_events.cpp, called by fdp_close()
+// before dev is freed.
+void fdp_stop_gc_listener(fdp_dev_t* dev);
+
 // Raw NVMe passthrough command builders, defined in nvme_ioctl.cpp.
 int nvme_io_mgmt_recv(fdp_dev_t* dev, void* data, uint32_t data_len, uint8_t op, uint16_t op_specific);
 int nvme_get_log(struct nvme_get_log_args* args);
